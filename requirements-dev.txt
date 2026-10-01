@@ -7,4 +7,4 @@ trustme
 wheel
 cryptography>=46.0.5
 brotlicffi>=1.2.0.0
-Werkzeug>=3.1.4
+Werkzeug>=3.1.9
