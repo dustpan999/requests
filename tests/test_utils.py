@@ -170,6 +170,16 @@ class TestGetNetrcAuth:
         auth = get_netrc_auth("http://example.com:@evil.com/&apos;")
         assert auth is None
 
+    def test_empty_default_credentials_ignored(self, tmp_path, monkeypatch):
+        """Empty default credentials should not be returned."""
+        netrc_path = tmp_path / ".netrc"
+        monkeypatch.setenv("NETRC", str(netrc_path))
+        with open(netrc_path, "w") as f:
+            f.write("machine example.com login user password pass\ndefault\n")
+
+        auth = get_netrc_auth("http://httpbin.org/")
+        assert auth is None
+
 
 class TestToKeyValList:
     @pytest.mark.parametrize(
@@ -351,9 +361,12 @@ class TestExtractZippedPaths:
         zipped_path = os.path.join(zipped_py.strpath, name.lstrip(r"\/"))
         extracted_path = extract_zipped_paths(zipped_path)
 
-        assert extracted_path != zipped_path
-        assert os.path.exists(extracted_path)
-        assert filecmp.cmp(extracted_path, __file__)
+        try:
+            assert extracted_path != zipped_path
+            assert os.path.exists(extracted_path)
+            assert filecmp.cmp(extracted_path, __file__)
+        finally:
+            os.remove(extracted_path)
 
     def test_invalid_unc_path(self):
         path = r"\\localhost\invalid\location"
@@ -583,7 +596,6 @@ def test_parse_dict_header(value, expected):
                 {
                     "boundary": "something",
                     "boundary2": "something_else",
-                    "no_equals": True,
                 },
             ),
         ),
@@ -594,7 +606,6 @@ def test_parse_dict_header(value, expected):
                 {
                     "boundary": "something",
                     "boundary2": "something_else",
-                    "no_equals": True,
                 },
             ),
         ),
@@ -605,7 +616,6 @@ def test_parse_dict_header(value, expected):
                 {
                     "boundary": "something",
                     "boundary2": "something_else",
-                    "no_equals": True,
                 },
             ),
         ),
@@ -616,7 +626,6 @@ def test_parse_dict_header(value, expected):
                 {
                     "boundary": "something",
                     "boundary2": "something_else",
-                    "no_equals": True,
                 },
             ),
         ),
@@ -636,6 +645,10 @@ def test__parse_content_type_header(value, expected):
             "utf-8",
         ),
         (CaseInsensitiveDict({"content-type": "text/plain"}), "ISO-8859-1"),
+        (
+            CaseInsensitiveDict({"content-type": "text/html; charset"}),
+            "ISO-8859-1",
+        ),
     ),
 )
 def test_get_encoding_from_headers(value, expected):
@@ -828,6 +841,29 @@ def test_should_bypass_proxies_no_proxy(url, expected, monkeypatch):
     """
     no_proxy = "192.168.0.0/24,127.0.0.1,localhost.localdomain,172.16.1.1"
     # Test 'no_proxy' argument
+    assert should_bypass_proxies(url, no_proxy=no_proxy) == expected
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    (
+        ("http://localhost/", True),
+        ("http://anotherdomain.com:8888/", True),
+        ("http://newdomain.com:1234/", True),
+        ("http://www.newdomain.com:1234/", True),
+        ("http://foo.d.o.t/", True),
+        ("http://d.o.t/", True),
+        ("http://prelocalhost/", False),
+        ("http://newdomain.com/", False),
+        ("http://newdomain.com:1235/", False),
+    ),
+)
+def test_should_bypass_proxies_no_proxy_domain_boundary(url, expected):
+    """Ensure no_proxy matching respects domain boundaries and does not
+    greedily match domains that merely endswith the no_proxy entry.
+    See CPython bpo-39057.
+    """
+    no_proxy = "localhost, anotherdomain.com, newdomain.com:1234, .d.o.t"
     assert should_bypass_proxies(url, no_proxy=no_proxy) == expected
 
 

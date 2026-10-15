@@ -467,6 +467,7 @@ Let's print some request method arguments at runtime::
 You can add multiple hooks to a single request.  Let's call two hooks at once::
 
     >>> r = requests.get('https://httpbin.org/', hooks={'response': [print_url, record_hook]})
+    https://httpbin.org/
     >>> r.hook_called
     True
 
@@ -677,9 +678,7 @@ In addition to basic HTTP proxies, Requests also supports proxies using the
 SOCKS protocol. This is an optional feature that requires that additional
 third-party libraries be installed before use.
 
-You can get the dependencies for this feature from ``pip``:
-
-.. code-block:: bash
+You can get the dependencies for this feature from ``pip``::
 
     $ python -m pip install 'requests[socks]'
 
